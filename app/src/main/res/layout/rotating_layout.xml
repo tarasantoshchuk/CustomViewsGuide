@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.tarasantoshchuk.custom_views_guide.RotatingLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_height="wrap_content"
+    app:views_count="8">
+        <View
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="#ff0000" />
+        <View
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="#00ffff"
+            app:layout_viewIndex="5" />
+        <View
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="#0000ff" />
+
+</com.tarasantoshchuk.custom_views_guide.RotatingLayout>
