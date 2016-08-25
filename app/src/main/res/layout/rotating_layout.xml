@@ -4,16 +4,17 @@
     android:layout_width="match_parent"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_height="wrap_content"
-    app:views_count="8">
+    app:positions_count="8">
         <View
             android:layout_width="30dp"
             android:layout_height="30dp"
             android:background="#ff0000" />
         <View
+            android:id = "@+id/clickable"
             android:layout_width="30dp"
             android:layout_height="30dp"
             android:background="#00ffff"
-            app:layout_viewIndex="5" />
+            app:layout_view_index="5" />
         <View
             android:layout_width="30dp"
             android:layout_height="30dp"

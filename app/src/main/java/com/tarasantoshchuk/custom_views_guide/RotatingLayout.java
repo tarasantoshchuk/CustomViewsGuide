@@ -6,13 +6,24 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.AttributeSet;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import java.util.HashMap;
+
 public class RotatingLayout extends ViewGroup {
     private static final int UNDEFINED_POSITION = -1;
-    private int mViewsCount;
+    private int mPositionsCount;
     private Paint mCenterPaint = new Paint();
+    private Paint mFakeViewPaint = new Paint();
+
+    private GestureDetector mGestureDetector;
+
+    private float mRotationAngle = 0;
+
+    private HashMap<Integer, View> mChildren = new HashMap<>();
 
     public RotatingLayout(Context context) {
         this(context, null);
@@ -24,14 +35,80 @@ public class RotatingLayout extends ViewGroup {
 
     public RotatingLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        init(context, attrs);
+    }
 
+    private void init(Context context, AttributeSet attrs) {
         setWillNotDraw(false);
 
         TypedArray attributes = context.obtainStyledAttributes(attrs, R.styleable.RotatingLayout);
 
-        mViewsCount = attributes.getInteger(R.styleable.RotatingLayout_views_count, getChildCount());
+        mPositionsCount = attributes.getInteger(R.styleable.RotatingLayout_positions_count, getChildCount());
 
         attributes.recycle();
+
+        initPaints();
+        initGestureDetector(context);
+    }
+
+    private void initPaints() {
+        mCenterPaint.setColor(Color.parseColor("#ff0000"));
+        mCenterPaint.setStyle(Paint.Style.FILL);
+        mCenterPaint.setStrokeWidth(5);
+
+        mFakeViewPaint.setColor(Color.parseColor("#464646"));
+        mFakeViewPaint.setStyle(Paint.Style.FILL);
+        mFakeViewPaint.setStrokeWidth(5);
+    }
+
+    private void initGestureDetector(Context context) {
+        mGestureDetector = new GestureDetector(
+                context,
+                new GestureDetector.SimpleOnGestureListener() {
+                    @Override
+                    public boolean onDown(MotionEvent e) {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                        double endX = e2.getX();
+                        double endY = e2.getY();
+
+                        double startX = endX - distanceX;
+                        double startY = endY - distanceY;
+
+                        double startDx = startX - getCenterX();
+                        double startDy = startY - getCenterY();
+
+                        double endDx = endX - getCenterX();
+                        double endDy = endY - getCenterY();
+
+                        double startAngle = Math.atan(startDx / startDy);
+                        double endAngle = Math.atan(endDx / endDy);
+
+                        double deltaAngle = endAngle - startAngle;
+
+                        if (startDy * endDy < 0) {
+                            deltaAngle += Math.PI;
+                        }
+
+                        mRotationAngle += deltaAngle;
+
+                        invalidate();
+
+                        return true;
+                    }
+                }
+        );
+
+        mGestureDetector.setIsLongpressEnabled(false);
+
+    }
+
+    @Override
+    public boolean onInterceptTouchEvent(MotionEvent ev) {
+        return mGestureDetector.onTouchEvent(ev);
     }
 
     @Override
@@ -68,11 +145,11 @@ public class RotatingLayout extends ViewGroup {
     }
 
     private int getMaxChildHeight() {
-        return 200;
+        return 100;
     }
 
     private int getMaxChildWidth() {
-        return 200;
+        return 100;
     }
 
     private int getDefaultSize() {
@@ -80,23 +157,54 @@ public class RotatingLayout extends ViewGroup {
     }
 
     @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        super.onTouchEvent(event);
+        return mGestureDetector.onTouchEvent(event) || event.getAction() == MotionEvent.ACTION_DOWN;
+    }
+
+    @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        mCenterPaint.setColor(Color.parseColor("#ff0000"));
-        mCenterPaint.setStyle(Paint.Style.FILL);
-        canvas.drawCircle(getWidth() / 2, getHeight() / 2, 20, mCenterPaint);
+
+
+        updateViewsTranslations();
+
+        int centerX = getCenterX();
+        int centerY = getCenterY();
+
+        canvas.drawCircle(centerX, centerY, 20, mCenterPaint);
+        for (int i = 0; i < mPositionsCount; i++) {
+            canvas.drawLine(centerX, centerY, getViewCenterX(i), getViewCenterY(i), mCenterPaint);
+
+            if (!mChildren.containsKey(i)) {
+                canvas.drawRect(
+                        getViewCenterX(i) - getMaxChildWidth() / 2,
+                        getViewCenterY(i) - getMaxChildWidth() / 2,
+                        getViewCenterX(i) + getMaxChildWidth() / 2,
+                        getViewCenterY(i) + getMaxChildWidth() / 2,
+                        mFakeViewPaint
+                );
+            }
+        }
+    }
+
+    private void updateViewsTranslations() {
+        for (int i = 0; i < mPositionsCount; i++) {
+            View child = mChildren.get(i);
+
+            if (child != null) {
+                child.setTranslationX(getViewCenterX(i));
+                child.setTranslationY(getViewCenterY(i));
+            }
+        }
+    }
+
+    private int getCenterY() {
+        return getHeight() / 2;
     }
 
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        int side = Math.min(r - l, b - t);
-
-        int centerX = getWidth() / 2;
-        int centerY = getHeight() / 2;
-
-        int radius = side / 4;
-
-
         int previousViewIndex = -1;
 
         for (int i = 0; i < getChildCount(); i++) {
@@ -104,12 +212,31 @@ public class RotatingLayout extends ViewGroup {
             LayoutParams params = (LayoutParams) child.getLayoutParams();
             int index = params.index == UNDEFINED_POSITION ? previousViewIndex + 1 : params.index;
 
-            int childLeft = (int) (centerX + radius * Math.sin(2 * index * Math.PI / (float) mViewsCount) - child.getMeasuredWidth() / 2);
-            int childTop = (int) (centerY - radius * Math.cos(2 * index * Math.PI / (float) mViewsCount) - child.getMeasuredHeight() / 2);
-
-            child.layout(childLeft, childTop, childLeft + child.getMeasuredWidth(), childTop + child.getMeasuredHeight());
+            child.layout(
+                    - child.getMeasuredWidth() / 2,
+                    - child.getMeasuredHeight() / 2,
+                    child.getMeasuredWidth() / 2,
+                    child.getMeasuredHeight() / 2);
             previousViewIndex = index;
+
+            mChildren.put(index, child);
         }
+    }
+
+    private int getRadius() {
+        return Math.min(getWidth(), getHeight()) / 4;
+    }
+
+    private float getViewCenterY(int index) {
+        return (float) (getCenterY() - getRadius() * Math.cos(2 * index * Math.PI / (float) mPositionsCount + mRotationAngle));
+    }
+
+    private int getCenterX() {
+        return getWidth() / 2;
+    }
+
+    private float getViewCenterX(int index) {
+        return (float) (getCenterX() + getRadius() * Math.sin(2 * index * Math.PI / (float) mPositionsCount + mRotationAngle));
     }
 
     @Override
@@ -138,7 +265,7 @@ public class RotatingLayout extends ViewGroup {
         public LayoutParams(Context c, AttributeSet attrs) {
             super(c, attrs);
             TypedArray attributes = c.obtainStyledAttributes(attrs, R.styleable.RotatingLayout);
-            index = attributes.getInteger(R.styleable.RotatingLayout_layout_viewIndex, UNDEFINED_POSITION);
+            index = attributes.getInteger(R.styleable.RotatingLayout_layout_view_index, UNDEFINED_POSITION);
             attributes.recycle();
         }
 

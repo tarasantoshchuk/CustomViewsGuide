@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <declare-styleable name="RotatingLayout">
-        <attr name="views_count" format="integer"/>
-        <attr name="layout_viewIndex" format="integer"/>
+        <attr name="positions_count" format="integer"/>
+        <attr name="layout_view_index" format="integer"/>
     </declare-styleable>
-
 </resources>
