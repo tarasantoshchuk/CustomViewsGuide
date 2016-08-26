@@ -1,16 +1,22 @@
 package com.tarasantoshchuk.custom_views_guide;
 
+import android.animation.Animator;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class RotatingLayout extends ViewGroup {
@@ -24,6 +30,7 @@ public class RotatingLayout extends ViewGroup {
     private float mRotationAngle = 0;
 
     private HashMap<Integer, View> mChildren = new HashMap<>();
+    private float[] mScaleAnimationCheckpoints = new float[]{1f, 2f, 0.5f, 1f};
 
     public RotatingLayout(Context context) {
         this(context, null);
@@ -99,11 +106,42 @@ public class RotatingLayout extends ViewGroup {
 
                         return true;
                     }
+
+                    @Override
+                    public void onLongPress(MotionEvent e) {
+                        startLongPressAnimation();
+                    }
                 }
         );
 
-        mGestureDetector.setIsLongpressEnabled(false);
+        mGestureDetector.setIsLongpressEnabled(true);
 
+    }
+
+    private void startLongPressAnimation() {
+        AnimatorSet animatorSet = new AnimatorSet();
+        ArrayList<Animator> animators = new ArrayList<>();
+
+        for (int i = 0; i < mPositionsCount; i++) {
+            View child = mChildren.get(i);
+
+            if (child != null) {
+                ObjectAnimator animatorX = new ObjectAnimator();
+                animatorX.setTarget(child);
+                animatorX.setProperty(View.SCALE_X);
+                animatorX.setFloatValues(mScaleAnimationCheckpoints);
+                ObjectAnimator animatorY = new ObjectAnimator();
+                animatorY.setTarget(child);
+                animatorY.setProperty(View.SCALE_Y);
+                animatorY.setFloatValues(mScaleAnimationCheckpoints);
+
+                animators.add(animatorX);
+                animators.add(animatorY);
+            }
+        }
+
+        animatorSet.playTogether(animators);
+        animatorSet.start();
     }
 
     @Override
@@ -282,4 +320,54 @@ public class RotatingLayout extends ViewGroup {
             }
         }
     }
+
+    @Override
+    protected Parcelable onSaveInstanceState() {
+        SavedState superState = new SavedState(super.onSaveInstanceState());
+        superState.rotationAngle = mRotationAngle;
+        return superState;
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Parcelable state) {
+        super.onRestoreInstanceState(state);
+
+        SavedState savedState = (SavedState) state;
+        mRotationAngle = savedState.rotationAngle;
+    }
+
+    private static class SavedState extends BaseSavedState {
+        public float rotationAngle;
+
+        public SavedState(Parcel source) {
+            super(source);
+
+            rotationAngle = source.readFloat();
+        }
+
+        public SavedState(Parcelable superState) {
+            super(superState);
+        }
+
+        public static final Creator<SavedState> CREATOR = new Creator<SavedState>() {
+            @Override
+            public SavedState createFromParcel(Parcel source) {
+                return new SavedState(source);
+            }
+
+            @Override
+            public SavedState[] newArray(int size) {
+                return new SavedState[size];
+            }
+        };
+
+        @Override
+        public void writeToParcel(Parcel out, int flags) {
+            super.writeToParcel(out, flags);
+
+            out.writeFloat(rotationAngle);
+        }
+    }
+
+
 }
